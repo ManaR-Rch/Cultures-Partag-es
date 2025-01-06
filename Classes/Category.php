@@ -26,11 +26,13 @@ class Category {
             ':description' => $description
         ]);
     }
+
     public function delete($id) {
         $query = "DELETE FROM {$this->table} WHERE id = :id";
         $stmt = $this->db->prepare($query);
         return $stmt->execute([':id' => $id]);
     }
+
     public function getAll() {
         $query = "SELECT * FROM {$this->table}";
         $stmt = $this->db->prepare($query);
