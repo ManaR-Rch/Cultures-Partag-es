@@ -21,3 +21,16 @@ class Article {
             ':image' => $image
         ]);
     }
+    public function updateArticle($id, $titre, $contenu, $category_id, $image = null) {
+        $query = "UPDATE {$this->table} 
+                  SET titre = :titre, contenu = :contenu, category_id = :category_id, image = :image 
+                  WHERE id = :id";
+        $stmt = $this->db->prepare($query);
+        return $stmt->execute([
+            ':id' => $id,
+            ':titre' => $titre,
+            ':contenu' => $contenu,
+            ':category_id' => $category_id,
+            ':image' => $image
+        ]);
+    }
