@@ -31,4 +31,10 @@ class Category {
         $stmt = $this->db->prepare($query);
         return $stmt->execute([':id' => $id]);
     }
+    public function getAll() {
+        $query = "SELECT * FROM {$this->table}";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
