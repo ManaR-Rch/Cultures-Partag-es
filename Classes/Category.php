@@ -16,4 +16,14 @@ class Category {
             ':description' => $description
         ]);
     }
+
+    public function update($id, $nom, $description) {
+        $query = "UPDATE {$this->table} SET nom = :nom, description = :description WHERE id = :id";
+        $stmt = $this->db->prepare($query);
+        return $stmt->execute([
+            ':id' => $id,
+            ':nom' => $nom,
+            ':description' => $description
+        ]);
+    }
 }
