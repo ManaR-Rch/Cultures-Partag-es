@@ -30,7 +30,6 @@ class Database {
 //     private $username = "your_username";
 //     private $password = "your_password";
 //     private $conn = null;
-
 //     public function getConnection() {
 //         try {
 //             $this->conn = new PDO(

@@ -2,11 +2,16 @@
 session_start();
 require_once(__DIR__.'/../../Classes/Database.php');
 require_once(__DIR__.'/../../Classes/User.php');
+require_once(__DIR__.'/../../Classes/mailer.php');
+
 
 
 $database = new Database();
 $db = $database->getConnection();
-$user = new User($db);
+// Créer une instance de Mailer
+$mailer = new Mailer();
+
+$user = new User($db , $mailer);
 
 $error = '' ;
 $success = '' ;
@@ -15,8 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['username'] ?? '';
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
+    $role = $_POST['role']?? '';
     $terms = isset($_POST['terms']);
-
+    
     if (empty($username) || empty($email) || empty($password)) {
         $error = "All fields are required";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -25,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "You must agree to the terms and conditions";
     } else {
         try {
-            if ($user->register($username, $email, $password)) {
+            if ($user->register($username, $email, $password,$role)) {
                 $success = "Registration successful! Please login.";
                 header("Location: sign-in.php");
                 exit();
@@ -35,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (PDOException $e) {
             $error = "An error occurred. Please try again.";
         }
-    }
+      }
 }
 ?>
 <!DOCTYPE html>
@@ -164,32 +170,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php endif; ?>
 
                         <form id="formAuthentication" class="mb-3" method="POST">
-                            <div class="mb-3">
-                                <label for="username" class="form-label">Username</label>
-                                <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" autofocus />
-                            </div>
-                            <div class="mb-3">
-                                <label for="email" class="form-label">Email</label>
-                                <input type="text" class="form-control" id="email" name="email" placeholder="Enter your email" />
-                            </div>
-                            <div class="mb-3 form-password-toggle">
-                                <label class="form-label" for="password">Password</label>
-                                <div class="input-group input-group-merge">
-                                    <input type="password" id="password" class="form-control" name="password" placeholder="············" />
-                                    <span class="input-group-text cursor-pointer"><i class="bx bx-hide"></i></span>
-                                </div>
-                            </div>
+    <div class="mb-3">
+        <label for="username" class="form-label">Username</label>
+        <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" autofocus />
+    </div>
+    <div class="mb-3">
+        <label for="email" class="form-label">Email</label>
+        <input type="text" class="form-control" id="email" name="email" placeholder="Enter your email" />
+    </div>
+    <div class="mb-3 form-password-toggle">
+        <label class="form-label" for="password">Password</label>
+        <div class="input-group input-group-merge">
+            <input type="password" id="password" class="form-control" name="password" placeholder="············" />
+            <span class="input-group-text cursor-pointer"><i class="bx bx-hide"></i></span>
+        </div>
+    </div>
 
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="terms-conditions" name="terms" />
-                                    <label class="form-check-label" for="terms-conditions">
-                                        I agree to the <a href="javascript:void(0);">privacy policy & terms</a>
-                                    </label>
-                                </div>
-                            </div>
-                            <button class="btn btn-primary d-grid w-100" type="submit">Sign up</button>
-                        </form>
+    <!-- Nouveau champ pour le rôle -->
+    <div class="mb-3">
+        <label for="role" class="form-label">Role</label>
+        <select class="form-control" id="role" name="role">
+            <option value="visitor">Visitor</option>
+            <option value="author">Author</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="terms-conditions" name="terms" />
+            <label class="form-check-label" for="terms-conditions">
+                I agree to the <a href="javascript:void(0);">privacy policy & terms</a>
+            </label>
+        </div>
+    </div>
+    <button class="btn btn-primary d-grid w-100" type="submit">Sign up</button>
+</form>
+
+
 
                         <p class="text-center">
                             <span>Already have an account?</span>

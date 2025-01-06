@@ -5,10 +5,10 @@ require_once __DIR__ . '/../../Classes/Database.php';
 session_start();
 
 // Ensure user is logged in
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit();
-}
+// if (!isset($_SESSION['user_id'])) {
+//     header('Location: ../Auth/sign-in.php');
+//     exit();
+// }
 
 // Initialize database connection
 // Assuming your database class is named 'Database'
@@ -36,21 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $category_id = $_POST['category_id'] ?? '';
     $user_id = $_SESSION['user_id'];
 
-    // Handle image upload
-    $image = null;
-    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = 'uploads/';
-        $fileName = uniqid() . '_' . basename($_FILES['image']['name']);
-        $uploadFile = $uploadDir . $fileName;
-
-        if (move_uploaded_file($_FILES['image']['tmp_name'], $uploadFile)) {
-            $image = $uploadFile;
-        }
-    }
 
     // Create article
     if ($articleObj->create($titre, $contenu, $user_id, $category_id)) {
-        header('Location: dashboard.php');
+        header('Location: Dashboard.php');
         exit();
     }
 }
@@ -305,14 +294,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <!-- / Navbar -->
 
 
-            <div class="layout-page">
                 <div class="content-wrapper">
                     <div class="container-xxl flex-grow-1 container-p-y">
                         <h4 class="fw-bold py-3 mb-4">
                             <span class="text-muted fw-light">Create New</span> Article
-                        </h4>
+                        </h4> 
 
-                        <div class="row">
+                  <div class="row">
                             <div class="col-xxl">
                                 <div class="card mb-4">
                                     <div class="card-body">
@@ -378,10 +366,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
+               </div>
         </div>
-    </div>
+    </div> 
 
    <!-- Core JS -->
     <!-- build:js assets/vendor/js/core.js -->

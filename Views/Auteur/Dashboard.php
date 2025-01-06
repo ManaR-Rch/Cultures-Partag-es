@@ -2,43 +2,109 @@
 require_once __DIR__ . '/../../Classes/Article.php';
 require_once __DIR__ . '/../../Classes/Category.php';
 require_once __DIR__ . '/../../Classes/Database.php';
+require_once __DIR__ . '/../Auth/check-auth.php';
 
-session_start();
-
-// Ensure user is logged in and get author ID
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit();
+if ($_SESSION['user_role'] !== 'author') {
+  header('Location: index.php'); // Redirigez vers une page non autorisée ou la page d'accueil
+  exit();
 }
-
+session_start();
 $author_id = $_SESSION['user_id'];
 
-// Initialize database connection
+// Initialiser la connexion à la base de données
 try {
     $db = new PDO(
-        "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME,
-        DB_USER,
-        DB_PASS,
+        "mysql:host=localhost;dbname=culture", // Hôte et nom de la base de données
+        "root", // Utilisateur
+        "",     // Mot de passe
         array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION)
     );
 } catch(PDOException $e) {
     die("Connection failed: " . $e->getMessage());
 }
 
-// Initialize Article class
-$article = new Article($db);
+// Initialiser les classes Article et Category
+$articleObj = new Article($db);
+$categoryObj = new Category($db);
 
-// Get author's articles with pagination
+// Gérer la suppression d'un article
+if (isset($_GET['delete_id'])) {
+    $article_id = $_GET['delete_id'];
+    if ($articleObj->deleteArticle($article_id)) {
+        header('Location: Dashboard.php');
+        exit();
+    } else {
+        echo "Failed to delete the article.";
+    }
+}
+
+// Gérer la mise à jour d'un article
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_article'])) {
+    $article_id = $_POST['article_id'];
+    $titre = $_POST['titre'] ?? '';
+    $contenu = $_POST['contenu'] ?? '';
+    $category_id = $_POST['category_id'] ?? '';
+
+    // Gérer l'upload de l'image
+    $image = null;
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $uploadDir = __DIR__ . '/../../uploads/'; // Dossier où stocker les images
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true); // Créer le dossier s'il n'existe pas
+        }
+        $imageName = uniqid() . '_' . basename($_FILES['image']['name']); // Nom unique pour éviter les conflits
+        $imagePath = $uploadDir . $imageName;
+        if (move_uploaded_file($_FILES['image']['tmp_name'], $imagePath)) {
+            $image = $imageName; // Stocker le nom de l'image dans la base de données
+        }
+    }
+
+    // Mettre à jour l'article avec l'image
+    if ($articleObj->updateArticle($article_id, $titre, $contenu, $category_id, $image)) {
+        header('Location: Dashboard.php');
+        exit();
+    }
+}
+
+// Gérer la création d'un nouvel article
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['titre'])) {
+    $titre = $_POST['titre'] ?? '';
+    $contenu = $_POST['contenu'] ?? '';
+    $category_id = $_POST['category_id'] ?? '';
+    $user_id = $_SESSION['user_id'];
+
+    // Gérer l'upload de l'image
+    $image = null;
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $uploadDir = __DIR__ . '/../../uploads/'; // Dossier où stocker les images
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true); // Créer le dossier s'il n'existe pas
+        }
+        $imageName = uniqid() . '_' . basename($_FILES['image']['name']); // Nom unique pour éviter les conflits
+        $imagePath = $uploadDir . $imageName;
+        if (move_uploaded_file($_FILES['image']['tmp_name'], $imagePath)) {
+            $image = $imageName; // Stocker le nom de l'image dans la base de données
+        }
+    }
+
+    // Créer l'article avec l'image
+    if ($articleObj->create($titre, $contenu, $user_id, $category_id, $image)) {
+        header('Location: Dashboard.php');
+        exit();
+    }
+}
+
+// Récupérer les articles de l'auteur avec pagination
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$limit = 6; // Show 6 articles per page
+$limit = 6; // Nombre d'articles par page
 
-// Get total articles for pagination
+// Récupérer le nombre total d'articles pour la pagination
 $stmt = $db->prepare("SELECT COUNT(*) FROM article WHERE user_id = :user_id");
 $stmt->execute([':user_id' => $author_id]);
 $total_articles = $stmt->fetchColumn();
 $total_pages = ceil($total_articles / $limit);
 
-// Get articles for current page
+// Récupérer les articles pour la page actuelle
 $offset = ($page - 1) * $limit;
 $stmt = $db->prepare("
     SELECT a.*, c.nom as category_name 
@@ -53,10 +119,13 @@ $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
 $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $stmt->execute();
 $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Récupérer toutes les catégories pour le formulaire
+$categories = $categoryObj->getAll();
 ?>
 
 <!DOCTYPE html>
-<html lang="en" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta
@@ -64,7 +133,7 @@ $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
       content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
     />
 
-    <title>Tables - Basic Tables | Sneat - Bootstrap 5 HTML Admin Template - Pro</title>
+    <title>Dashboard</title>
 
     <meta name="description" content="" />
 
@@ -90,7 +159,8 @@ $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
 
-    <!-- Page CSS -->
+     <!-- Bootstrap CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 
     <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
@@ -98,13 +168,12 @@ $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
     <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
     <script src="../../assets/js/config.js"></script>
-  </head>
+</head>
 <body>
-<div class="layout-wrapper layout-content-navbar">
-      <div class="layout-container">
-        <!-- Menu -->
-
-        <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+    <div class="layout-wrapper layout-content-navbar">
+        <div class="layout-container">
+            <!-- Menu -->
+            <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
           <div class="app-brand demo">
             <a href="index.html" class="app-brand-link">
               <span class="app-brand-logo demo">
@@ -203,13 +272,12 @@ $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
           </ul>
         </aside>
-        <!-- / Menu -->
+            <!-- / Menu -->
 
-        <!-- Layout container -->
-        <div class="layout-page">
-          <!-- Navbar -->
-
-          <nav
+            <!-- Layout container -->
+            <div class="layout-page">
+                <!-- Navbar -->
+                <nav
             class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
             id="layout-navbar"
           >
@@ -300,21 +368,86 @@ $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
               </ul>
             </div>
           </nav>
+                <!-- / Navbar -->
 
-          <!-- / Navbar -->
-
-
+ 
                 <div class="content-wrapper">
                     <div class="container-xxl flex-grow-1 container-p-y">
+                        <!-- Formulaire de création d'article -->
+                        <h4 class="fw-bold py-3 mb-4">
+                            <span class="text-muted fw-light">Create New</span> Article
+                        </h4>
+                        <div class="row">
+                            <div class="col-xxl">
+                                <div class="card mb-4">
+                                    <div class="card-body">
+                                        <form method="POST" enctype="multipart/form-data">
+                                            <div class="row mb-3">
+                                                <label class="col-sm-2 col-form-label" for="titre">Article Title</label>
+                                                <div class="col-sm-10">
+                                                    <input type="text" class="form-control" id="titre" name="titre" required />
+                                                </div>
+                                            </div>
+
+                                            <div class="row mb-3">
+                                                <label class="col-sm-2 col-form-label" for="category_id">Category</label>
+                                                <div class="col-sm-10">
+                                                    <select name="category_id" id="category_id" class="form-control" required>
+                                                        <option value="">Select Category</option>
+                                                        <?php foreach ($categories as $category): ?>
+                                                            <option value="<?= htmlspecialchars($category['id']) ?>">
+                                                                <?= htmlspecialchars($category['nom']) ?>
+                                                            </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div class="row mb-3">
+                                                <label class="col-sm-2 col-form-label" for="contenu">Content</label>
+                                                <div class="col-sm-10">
+                                                    <textarea id="contenu" name="contenu" class="form-control" rows="5" required></textarea>
+                                                </div>
+                                            </div>
+
+                                            <div class="row mb-3">
+                                                <label class="col-sm-2 col-form-label" for="image">Image</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="file" id="image" name="image" accept="image/*" />
+                                                </div>
+                                            </div>
+
+                                            <div class="row justify-content-end">
+                                                <div class="col-sm-10">
+                                                    <button type="submit" class="btn btn-primary">Publish</button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Affichage des articles -->
                         <h4 class="fw-bold py-3 mb-4">
                             <span class="text-muted fw-light">Your Articles</span>
                         </h4>
-
-                        <!-- Articles Grid -->
                         <div class="row mb-5">
                             <?php foreach ($articles as $article): ?>
                                 <div class="col-md-6 col-lg-4 mb-3">
                                     <div class="card h-100">
+                                        <!-- Boutons Edit et Delete -->
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <div>
+                                            <a href="#editArticleModal<?= $article['id'] ?>" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editArticleModal<?= $article['id'] ?>">
+                                              <i class="bx bx-edit"></i> Edit
+                                              </a>
+                                                <a href="Dashboard.php?delete_id=<?= $article['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this article?');">
+                                                    <i class="bx bx-trash"></i> Delete
+                                                </a>
+                                            </div>
+                                        </div>
+
                                         <div class="card-body">
                                             <h5 class="card-title"><?= htmlspecialchars($article['titre']) ?></h5>
                                             <h6 class="card-subtitle text-muted">
@@ -322,28 +455,64 @@ $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                             </h6>
                                         </div>
                                         <?php if (!empty($article['image'])): ?>
-                                            <img class="img-fluid" src="<?= htmlspecialchars($article['image']) ?>" alt="Article image" />
+                                            <img class="img-fluid" src="../../uploads/<?= htmlspecialchars($article['image']) ?>" alt="Article image" />
                                         <?php endif; ?>
                                         <div class="card-body">
                                             <p class="card-text">
                                                 <?= htmlspecialchars(substr($article['contenu'], 0, 100)) ?>...
                                             </p>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <a href="edit_article.php?id=<?= $article['id'] ?>" class="card-link">
-                                                        <i class="bx bx-edit"></i> Edit
-                                                    </a>
-                                                    <a href="view_article.php?id=<?= $article['id'] ?>" class="card-link">
-                                                        <i class="bx bx-show"></i> View
-                                                    </a>
-                                                </div>
-                                                <span class="badge bg-<?= $article['statut'] === 'publié' ? 'success' : 'warning' ?>">
-                                                    <?= htmlspecialchars($article['statut'] ?? 'Pending') ?>
-                                                </span>
-                                            </div>
+                                            <span class="badge bg-<?= $article['statut'] === 'publié' ? 'success' : 'warning' ?>">
+                                                <?= htmlspecialchars($article['statut'] ?? 'Pending') ?>
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
+
+                                <!-- Modal pour l'édition d'article -->
+
+<div class="modal fade" id="editArticleModal<?= $article['id'] ?>" tabindex="-1" aria-labelledby="editArticleModalLabel<?= $article['id'] ?>" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editArticleModalLabel<?= $article['id'] ?>">Edit Article</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="edit_article" value="1">
+                    <input type="hidden" name="article_id" value="<?= $article['id'] ?>">
+                    <div class="mb-3">
+                        <label for="titre<?= $article['id'] ?>" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="titre<?= $article['id'] ?>" name="titre" value="<?= htmlspecialchars($article['titre']) ?>" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contenu<?= $article['id'] ?>" class="form-label">Content</label>
+                        <textarea class="form-control" id="contenu<?= $article['id'] ?>" name="contenu" rows="5" required><?= htmlspecialchars($article['contenu']) ?></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="category_id<?= $article['id'] ?>" class="form-label">Category</label>
+                        <select class="form-control" id="category_id<?= $article['id'] ?>" name="category_id" required>
+                            <?php foreach ($categoryObj->getAll() as $category): ?>
+                                <option value="<?= htmlspecialchars($category['id']) ?>" <?= $category['id'] == $article['category_id'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($category['nom']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="image<?= $article['id'] ?>" class="form-label">Image</label>
+                        <input type="file" class="form-control" id="image<?= $article['id'] ?>" name="image" accept="image/*" />
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Save changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
                             <?php endforeach; ?>
                         </div>
 
@@ -378,25 +547,22 @@ $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
 
     <!-- Core JS -->
-    <!-- build:js assets/vendor/js/core.js -->
+<!-- jQuery (nécessaire pour Bootstrap) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Popper.js (nécessaire pour les modals Bootstrap) -->
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+
     <script src="../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../assets/vendor/libs/popper/popper.js"></script>
     <script src="../assets/vendor/js/bootstrap.js"></script>
     <script src="../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-
     <script src="../assets/vendor/js/menu.js"></script>
-    <!-- endbuild -->
-
-    <!-- Vendors JS -->
-
-    <!-- Main JS -->
     <script src="../assets/js/main.js"></script>
-
-    <!-- Page JS -->
-
     <script src="../assets/js/form-basic-inputs.js"></script>
-
-    <!-- Place this tag in your head or just before your close body tag. -->
     <script async defer src="https://buttons.github.io/buttons.js"></script>
-  </body>
+</body>
 </html>

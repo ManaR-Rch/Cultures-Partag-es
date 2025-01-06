@@ -1,26 +1,69 @@
+<?php
+require_once __DIR__ . '/../../Classes/Article.php';
+require_once __DIR__ . '/../../Classes/Category.php';
+require_once __DIR__ . '/../../Classes/Database.php';
+require_once __DIR__ . '/../Auth/check-auth.php';
+
+session_start();
+
+$author_id = $_SESSION['user_id'];
+
+// Initialiser la connexion à la base de données
+try {
+    $db = new PDO(
+        "mysql:host=localhost;dbname=culture", // Hôte et nom de la base de données
+        "root", // Utilisateur
+        "",     // Mot de passe
+        array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION)
+    );
+} catch(PDOException $e) {
+    die("Connection failed: " . $e->getMessage());
+}
+
+// Initialiser les classes Article et Category
+$articleObj = new Article($db);
+$categoryObj = new Category($db);
+
+// Récupérer toutes les catégories pour le formulaire
+$categories = $categoryObj->getAll();
+
+// Filtrer les articles par catégorie si une catégorie est sélectionnée
+$selected_category_id = isset($_GET['category_id']) ? (int)$_GET['category_id'] : null;
+
+if ($selected_category_id) {
+    $articles = $articleObj->getPublishedArticlesByCategory($selected_category_id);
+} else {
+    // Récupérer les articles publiés avec pagination
+    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+    $limit = 6; // Nombre d'articles par page
+
+    // Récupérer le nombre total d'articles publiés pour la pagination
+    $stmt = $db->prepare("SELECT COUNT(*) FROM article WHERE statut = 'publié'");
+    $stmt->execute();
+    $total_articles = $stmt->fetchColumn();
+    $total_pages = ceil($total_articles / $limit);
+
+    // Récupérer les articles publiés pour la page actuelle
+    $offset = ($page - 1) * $limit;
+    $stmt = $db->prepare("
+        SELECT a.*, u.nom as author_name, c.nom as category_name 
+        FROM article a
+        JOIN users u ON a.user_id = u.id
+        JOIN categories c ON a.category_id = c.id
+        WHERE a.statut = 'publié'
+        ORDER BY a.id DESC
+        LIMIT :limit OFFSET :offset
+    ");
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
+    $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+?>
+
 <!DOCTYPE html>
-
-<!-- =========================================================
-* Sneat - Bootstrap 5 HTML Admin Template - Pro | v1.0.0
-==============================================================
-
-* Product Page: https://themeselection.com/products/sneat-bootstrap-html-admin-template/
-* Created by: ThemeSelection
-* License: You must have a valid license purchased in order to legally use the theme for your project.
-* Copyright ThemeSelection (https://themeselection.com)
-
-=========================================================
- -->
-<!-- beautify ignore:start -->
-<html
-  lang="en"
-  class="light-style layout-menu-fixed"
-  dir="ltr"
-  data-theme="theme-default"
-  da../ta-assets-path="../../assets/"
-  data-template="vertical-menu-template-free"
->
-  <head>
+<html lang="en">
+<head>
     <meta charset="utf-8" />
     <meta
       name="viewport"
@@ -62,9 +105,8 @@
     <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
     <script src="../../assets/js/config.js"></script>
   </head>
-
-  <body>
-    <!-- Layout wrapper -->
+<body>
+    <!-- Menu and Navbar content here -->
     <div class="layout-wrapper layout-content-navbar">
       <div class="layout-container">
         <!-- Menu -->
@@ -174,10 +216,8 @@
         <div class="layout-page">
           <!-- Navbar -->
 
-          <nav
-            class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
-            id="layout-navbar"
-          >
+          <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"id="layout-navbar">
+          
             <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
               <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
                 <i class="bx bx-menu bx-sm"></i>
@@ -268,188 +308,83 @@
 
           <!-- / Navbar -->
 
-          <!-- Content wrapper -->
-          <div class="content-wrapper">
-            <!-- Content -->
+    <div class="content-wrapper">
+        <div class="container-xxl flex-grow-1 container-p-y">
+            <h4 class="fw-bold py-3 mb-4"><span class="text-muted fw-light">Welcome to Articles</span> / please serve yourself</h4>
 
-            <div class="container-xxl flex-grow-1 container-p-y">
-              <h4 class="fw-bold py-3 mb-4"><span class="text-muted fw-light"> Welcome to Articles </span>/ please serve yourself</h4>
-              <div class="btn-group">
-                      <button type="button" class="btn btn-secondary"> Our Categories</button>
-                      <button
-                        type="button"
-                        class="btn btn-secondary dropdown-toggle dropdown-toggle-split"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false"
-                      >
-                        <span class="visually-hidden">Toggle Dropdown</span>
-                      </button>
-                      <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="javascript:void(0);">Action</a></li>
-                        <li><a class="dropdown-item" href="javascript:void(0);">Another action</a></li>
-                        <li><a class="dropdown-item" href="javascript:void(0);">Something else here</a></li>
-                        <li>
-                          <hr class="dropdown-divider" />
+            <!-- Menu déroulant pour filtrer par catégorie -->
+            <div class="btn-group">
+                <button type="button" class="btn btn-secondary">Nos Catégories</button>
+                <button type="button" class="btn btn-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span class="visually-hidden">Toggle Dropdown</span>
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="Dashboard.php">Toutes les catégories</a></li>
+                    <?php foreach ($categories as $category): ?>
+                        <li><a class="dropdown-item" href="Dashboard.php?category_id=<?= $category['id'] ?>"><?= htmlspecialchars($category['nom']) ?></a></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+
+            <br><br><br>
+
+            <!-- Affichage des articles -->
+            <div class="row mb-5">
+                <?php foreach ($articles as $article): ?>
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title"><?= htmlspecialchars($article['titre']) ?></h5>
+                                <h6 class="card-subtitle text-muted">
+                                    Auteur: <?= htmlspecialchars($article['author_name']) ?>
+                                </h6>
+                                <h6 class="card-subtitle text-muted">
+                                    Catégorie: <?= htmlspecialchars($article['category_name']) ?>
+                                </h6>
+                            </div>
+                            <?php if (!empty($article['image'])): ?>
+                                <img class="img-fluid" src="../../uploads/<?= htmlspecialchars($article['image']) ?>" alt="Article image" />
+                            <?php endif; ?>
+                            <div class="card-body">
+                                <p class="card-text">
+                                    <?= htmlspecialchars(substr($article['contenu'], 0, 100)) ?>...
+                                </p>
+                                <a href="article_details.php?id=<?= $article['id'] ?>" class="btn btn-primary">Lire plus</a>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+
+            <!-- Pagination -->
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+                        <a class="page-link" href="?page=<?= $page - 1 ?><?= $selected_category_id ? '&category_id=' . $selected_category_id : '' ?>">
+                            <i class="tf-icon bx bx-chevrons-left"></i>
+                        </a>
+                    </li>
+                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                        <li class="page-item <?= ($page == $i) ? 'active' : '' ?>">
+                            <a class="page-link" href="?page=<?= $i ?><?= $selected_category_id ? '&category_id=' . $selected_category_id : '' ?>"><?= $i ?></a>
                         </li>
-                        <li><a class="dropdown-item" href="javascript:void(0);">Separated link</a></li>
-                      </ul>
-                    </div>
-<br>
-<br>
-<br>
-             
-                    <!-- Examples -->
+                    <?php endfor; ?>
+                    <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
+                        <a class="page-link" href="?page=<?= $page + 1 ?><?= $selected_category_id ? '&category_id=' . $selected_category_id : '' ?>">
+                            <i class="tf-icon bx bx-chevrons-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
 
-              <div class="row mb-5">
-              <div class="col-md-6 col-lg-4 mb-3">
-                  <div class="card h-100">
-                    <div class="card-body">
-                      <h5 class="card-title">Card title</h5>
-                      <h6 class="card-subtitle text-muted">Support card subtitle</h6>
-                    </div>
-                    <img class="img-fluid" src="../../assets/img/elements/13.jpg" alt="Card image cap" />
-                    <div class="card-body">
-                      <p class="card-text">Bear claw sesame snaps gummies chocolate.</p>
-                      <a href="javascript:void(0);" class="card-link">Card link</a>
-                      <a href="javascript:void(0);" class="card-link">Another link</a>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-md-6 col-lg-4 mb-3">
-                  <div class="card h-100">
-                    <div class="card-body">
-                      <h5 class="card-title">Card title</h5>
-                      <h6 class="card-subtitle text-muted">Support card subtitle</h6>
-                    </div>
-                    <img class="img-fluid" src="../../assets/img/elements/13.jpg" alt="Card image cap" />
-                    <div class="card-body">
-                      <p class="card-text">Bear claw sesame snaps gummies chocolate.</p>
-                      <a href="javascript:void(0);" class="card-link">Card link</a>
-                      <a href="javascript:void(0);" class="card-link">Another link</a>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-md-6 col-lg-4 mb-3">
-                  <div class="card h-100">
-                    <div class="card-body">
-                      <h5 class="card-title">Card title</h5>
-                      <h6 class="card-subtitle text-muted">Support card subtitle</h6>
-                    </div>
-                    <img class="img-fluid" src="../../assets/img/elements/13.jpg" alt="Card image cap" />
-                    <div class="card-body">
-                      <p class="card-text">Bear claw sesame snaps gummies chocolate.</p>
-                      <a href="javascript:void(0);" class="card-link">Card link</a>
-                      <a href="javascript:void(0);" class="card-link">Another link</a>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-md-6 col-lg-4 mb-3">
-                  <div class="card h-100">
-                    <div class="card-body">
-                      <h5 class="card-title">Card title</h5>
-                      <h6 class="card-subtitle text-muted">Support card subtitle</h6>
-                    </div>
-                    <img class="img-fluid" src="../../assets/img/elements/13.jpg" alt="Card image cap" />
-                    <div class="card-body">
-                      <p class="card-text">Bear claw sesame snaps gummies chocolate.</p>
-                      <a href="javascript:void(0);" class="card-link">Card link</a>
-                      <a href="javascript:void(0);" class="card-link">Another link</a>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-md-6 col-lg-4 mb-3">
-                  <div class="card h-100">
-                    <div class="card-body">
-                      <h5 class="card-title">Card title</h5>
-                      <h6 class="card-subtitle text-muted">Support card subtitle</h6>
-                    </div>
-                    <img class="img-fluid" src="../../assets/img/elements/13.jpg" alt="Card image cap" />
-                    <div class="card-body">
-                      <p class="card-text">Bear claw sesame snaps gummies chocolate.</p>
-                      <a href="javascript:void(0);" class="card-link">Card link</a>
-                      <a href="javascript:void(0);" class="card-link">Another link</a>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-md-6 col-lg-4 mb-3">
-                  <div class="card h-100">
-                    <div class="card-body">
-                      <h5 class="card-title">Card title</h5>
-                      <h6 class="card-subtitle text-muted">Support card subtitle</h6>
-                    </div>
-                    <img class="img-fluid" src="../../assets/img/elements/13.jpg" alt="Card image cap" />
-                    <div class="card-body">
-                      <p class="card-text">Bear claw sesame snaps gummies chocolate.</p>
-                      <a href="javascript:void(0);" class="card-link">Card link</a>
-                      <a href="javascript:void(0);" class="card-link">Another link</a>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-md-6 col-lg-4 mb-3">
-                  <div class="card h-100">
-                    <div class="card-body">
-                      <h5 class="card-title">Card title</h5>
-                      <h6 class="card-subtitle text-muted">Support card subtitle</h6>
-                    </div>
-                    <img class="img-fluid" src="../../assets/img/elements/13.jpg" alt="Card image cap" />
-                    <div class="card-body">
-                      <p class="card-text">Bear claw sesame snaps gummies chocolate.</p>
-                      <a href="javascript:void(0);" class="card-link">Card link</a>
-                      <a href="javascript:void(0);" class="card-link">Another link</a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <!-- Examples -->
-<!-- pagination -->
-              <nav aria-label="Page navigation">
-                          <ul class="pagination justify-content-center">
-                            <li class="page-item prev">
-                              <a class="page-link" href="javascript:void(0);"
-                                ><i class="tf-icon bx bx-chevrons-left"></i
-                              ></a>
-                            </li>
-                            <li class="page-item">
-                              <a class="page-link" href="javascript:void(0);">1</a>
-                            </li>
-                            <li class="page-item">
-                              <a class="page-link" href="javascript:void(0);">2</a>
-                            </li>
-                            <li class="page-item active">
-                              <a class="page-link" href="javascript:void(0);">3</a>
-                            </li>
-                            <li class="page-item">
-                              <a class="page-link" href="javascript:void(0);">4</a>
-                            </li>
-                            <li class="page-item">
-                              <a class="page-link" href="javascript:void(0);">5</a>
-                            </li>
-                            <li class="page-item next">
-                              <a class="page-link" href="javascript:void(0);"
-                                ><i class="tf-icon bx bx-chevrons-right"></i
-                              ></a>
-                            </li>
-                          </ul>
-                        </nav>
     <!-- Core JS -->
-    <!-- build:../js assets/vendor/js/core.js -->
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-
     <script src="../../assets/vendor/js/menu.js"></script>
-    <!-- endbuild -->
-
-    <!-- Vendors JS -->
-    <script src="../../assets/vendor/libs/masonry/masonry.js"></script>
-
-    <!-- Main JS -->
     <script src="../../assets/js/main.js"></script>
-
-    <!-- Page JS -->
-
-    <!-- Place this tag in your head or just before your close body tag. -->
-    <script async defer src="https://buttons.github.io/buttons.js"></script>
-  </body>
+</body>
 </html>

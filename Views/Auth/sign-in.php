@@ -10,7 +10,7 @@ $user = new User($db);
 $error = '';
 $success = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') { 
     $email = $_POST['email-username'] ?? '';
     $password = $_POST['password'] ?? '';
 
@@ -19,15 +19,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $loggedInUser = $user->login($email, $password);
         if ($loggedInUser) {
+            // Stocker les informations utilisateur dans la session
             $_SESSION['user_id'] = $loggedInUser['id'];
             $_SESSION['user_name'] = $loggedInUser['nom'];
-            header("Location: index.php");
+            $_SESSION['user_role'] = $loggedInUser['role'];
+
+            // Rediriger selon le rôle
+            if ($loggedInUser['role'] === 'admin') {
+                header("Location: ../Admin/dashboardAdmin.php");
+            } elseif ($loggedInUser['role'] === 'author') {
+                header("Location:../Auteur/Dashboard.php");
+            } elseif ($loggedInUser['role'] === 'visitor'){
+                header("Location: ../Visiteur/Article.php");
+            }
             exit();
         } else {
             $error = "Invalid email or password";
         }
     }
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="en" class="light-style customizer-hide" dir="ltr" data-theme="theme-default">
