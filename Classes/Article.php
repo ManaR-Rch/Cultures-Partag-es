@@ -52,3 +52,8 @@ class Article {
         $stmt = $this->db->prepare($query);
         return $stmt->execute([':id' => $id]);
     }
+    public function deleteArticle($id) {
+        $query = "DELETE FROM {$this->table} WHERE id = :id";
+        $stmt = $this->db->prepare($query);
+        return $stmt->execute([':id' => $id]);
+    }
