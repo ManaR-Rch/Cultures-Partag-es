@@ -57,3 +57,9 @@ class Article {
         $stmt = $this->db->prepare($query);
         return $stmt->execute([':id' => $id]);
     }
+    public function getArticleById($id) {
+        $query = "SELECT * FROM {$this->table} WHERE id = :id";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([':id' => $id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
