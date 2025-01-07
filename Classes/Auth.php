@@ -20,3 +20,6 @@ class Auth {
   public function login($user_id) {
     $_SESSION['user_id'] = $user_id;
 }
+public function login($user_id) {
+  $_SESSION['user_id'] = $user_id;
+}
