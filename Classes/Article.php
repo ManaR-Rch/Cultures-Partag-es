@@ -116,3 +116,16 @@ class Article {
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+    public function getPublishedArticlesByCategory($category_id) {
+        $query = "SELECT a.*, u.nom as author_name, c.nom as category_name 
+                  FROM article a
+                  JOIN users u ON a.user_id = u.id
+                  JOIN categories c ON a.category_id = c.id
+                  WHERE a.statut = 'publié' AND a.category_id = :category_id
+                  ORDER BY a.id DESC";
+        
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([':category_id' => $category_id]);
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
