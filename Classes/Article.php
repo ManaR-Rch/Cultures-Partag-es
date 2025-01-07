@@ -63,3 +63,21 @@ class Article {
         $stmt->execute([':id' => $id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
+
+    public function updateStatus($id, $statut) {
+        $query = "UPDATE {$this->table} SET statut = :statut WHERE id = :id";
+        $stmt = $this->db->prepare($query);
+        return $stmt->execute([
+            ':id' => $id,
+            ':statut' => $statut
+        ]);
+    }
+    public function updateStatus($id, $statut) {
+        $query = "UPDATE {$this->table} SET statut = :statut WHERE id = :id";
+        $stmt = $this->db->prepare($query);
+        return $stmt->execute([
+            ':id' => $id,
+            ':statut' => $statut
+        ]);
+    }
+
