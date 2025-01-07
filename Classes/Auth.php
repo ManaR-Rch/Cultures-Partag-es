@@ -14,3 +14,6 @@ class Auth {
             session_start();
         }
     }
+    public function login($user_id) {
+      $_SESSION['user_id'] = $user_id;
+  }
