@@ -98,3 +98,21 @@ class Article {
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+    
+    public function getArticlesByCategory($category_id, $page = 1, $limit = 10) {
+        $offset = ($page - 1) * $limit; 
+        $query = "SELECT a.*, u.nom as author_name, c.nom as category_name 
+                 FROM {$this->table} a
+                 JOIN users u ON a.user_id = u.id
+                 JOIN categories c ON a.category_id = c.id
+                 WHERE a.category_id = :category_id AND a.statut = 'publié'
+                 LIMIT :limit OFFSET :offset";
+        
+        $stmt = $this->db->prepare($query);
+        $stmt->bindValue(':category_id', $category_id, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
