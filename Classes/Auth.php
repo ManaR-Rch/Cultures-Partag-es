@@ -40,3 +40,11 @@ public function requireLogin() {
       exit();
   }
 }
+public function requireAdmin() {
+  $this->requireLogin(); // Vérifie d'abord si l'utilisateur est connecté
+  if ($_SESSION['role'] !== 'admin') {
+      header('Location: http://localhost/Cultures-partag-es/Auth/sign-in.php');
+      exit();
+  }
+}
+}
