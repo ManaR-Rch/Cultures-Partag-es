@@ -19,7 +19,25 @@ $db = $database->getConnection();
 $category = new Category($db);
 $article = new Article($db);
 $user = new User($db);
-
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['create_category'])) {
+        $nom = $_POST['nom'];
+        $description = $_POST['description'];
+        $category->create($nom, $description);
+    } elseif (isset($_POST['delete_category'])) {
+        $id = $_POST['id'];
+        $category->delete($id);
+    } elseif (isset($_POST['approve_article'])) {
+        $articleId = $_POST['articleId'];
+        $article->updateStatus($articleId, 'publié');
+    } elseif (isset($_POST['reject_article'])) {
+        $articleId = $_POST['articleId'];
+        $article->updateStatus($articleId, 'rejeté');
+    } elseif (isset($_POST['delete_article'])) {
+        $articleId = $_POST['articleId'];
+        $article->deleteArticle($articleId);
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../../assets/" data-template="vertical-menu-template-free">
