@@ -13,6 +13,12 @@ if ($_SESSION['user_role'] !== 'admin') {
     header('Location: ../Auth/sign-in.php'); // Redirigez vers une page non autorisée ou la page d'accueil
     exit();
 }
+$database = new Database();
+$db = $database->getConnection();
+
+$category = new Category($db);
+$article = new Article($db);
+$user = new User($db);
 
 ?>
 <!DOCTYPE html>
