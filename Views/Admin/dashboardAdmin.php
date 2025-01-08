@@ -13,12 +13,18 @@ if ($_SESSION['user_role'] !== 'admin') {
     header('Location: ../Auth/sign-in.php'); // Redirigez vers une page non autorisée ou la page d'accueil
     exit();
 }
+
+
 $database = new Database();
 $db = $database->getConnection();
 
+
+// Initialisation des objets
 $category = new Category($db);
 $article = new Article($db);
 $user = new User($db);
+
+// Traitement des formulaires
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['create_category'])) {
         $nom = $_POST['nom'];
