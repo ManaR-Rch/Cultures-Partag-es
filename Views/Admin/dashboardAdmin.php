@@ -5,45 +5,6 @@ require_once __DIR__ . '/../../Classes/Category.php';
 require_once __DIR__ . '/../../Classes/Database.php';
 require_once __DIR__ . '/../../Classes/User.php';
 require_once __DIR__ . '/../Auth/check-auth.php';
-// Initialisation de la connexion à la base de données
-session_start();
-
-// Vérifiez si l'utilisateur a le rôle d'administrateur
-if ($_SESSION['user_role'] !== 'admin') {
-    header('Location: ../Auth/sign-in.php'); // Redirigez vers une page non autorisée ou la page d'accueil
-    exit();
-}
-
-
-$database = new Database();
-$db = $database->getConnection();
-
-
-// Initialisation des objets
-$category = new Category($db);
-$article = new Article($db);
-$user = new User($db);
-
-// Traitement des formulaires
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['create_category'])) {
-        $nom = $_POST['nom'];
-        $description = $_POST['description'];
-        $category->create($nom, $description);
-    } elseif (isset($_POST['delete_category'])) {
-        $id = $_POST['id'];
-        $category->delete($id);
-    } elseif (isset($_POST['approve_article'])) {
-        $articleId = $_POST['articleId'];
-        $article->updateStatus($articleId, 'publié');
-    } elseif (isset($_POST['reject_article'])) {
-        $articleId = $_POST['articleId'];
-        $article->updateStatus($articleId, 'rejeté');
-    } elseif (isset($_POST['delete_article'])) {
-        $articleId = $_POST['articleId'];
-        $article->deleteArticle($articleId);
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="en" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../../assets/" data-template="vertical-menu-template-free">
