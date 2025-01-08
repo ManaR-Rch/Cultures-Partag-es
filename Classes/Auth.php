@@ -34,3 +34,9 @@ public function isLoggedIn() {
 public function isLoggedIn() {
   return isset($_SESSION['user_id']);
 }
+public function requireLogin() {
+  if (!$this->isLoggedIn()) {
+      header('Location: http://localhost/Cultures-partag-es/Auth/sign-in.php');
+      exit();
+  }
+}
