@@ -5,6 +5,15 @@ require_once __DIR__ . '/../../Classes/Category.php';
 require_once __DIR__ . '/../../Classes/Database.php';
 require_once __DIR__ . '/../../Classes/User.php';
 require_once __DIR__ . '/../Auth/check-auth.php';
+// Initialisation de la connexion à la base de données
+session_start();
+
+// Vérifiez si l'utilisateur a le rôle d'administrateur
+if ($_SESSION['user_role'] !== 'admin') {
+    header('Location: ../Auth/sign-in.php'); // Redirigez vers une page non autorisée ou la page d'accueil
+    exit();
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../../assets/" data-template="vertical-menu-template-free">
