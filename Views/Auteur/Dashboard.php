@@ -3,6 +3,13 @@ require_once __DIR__ . '/../../Classes/Article.php';
 require_once __DIR__ . '/../../Classes/Category.php';
 require_once __DIR__ . '/../../Classes/Database.php';
 require_once __DIR__ . '/../Auth/check-auth.php';
+
+if ($_SESSION['user_role'] !== 'author') {
+  header('Location: index.php'); // Redirigez vers une page non autorisée ou la page d'accueil
+  exit();
+}
+session_start();
+$author_id = $_SESSION['user_id'];
 ?>
 
 <!DOCTYPE html>
