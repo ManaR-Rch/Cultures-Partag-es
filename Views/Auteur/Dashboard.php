@@ -10,6 +10,19 @@ if ($_SESSION['user_role'] !== 'author') {
 }
 session_start();
 $author_id = $_SESSION['user_id'];
+
+// Initialiser la connexion à la base de données
+try {
+  $db = new PDO(
+      "mysql:host=localhost;dbname=culture", // Hôte et nom de la base de données
+      "root", // Utilisateur
+      "",     // Mot de passe
+      array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION)
+  );
+} catch(PDOException $e) {
+  die("Connection failed: " . $e->getMessage());
+}
+
 ?>
 
 <!DOCTYPE html>
