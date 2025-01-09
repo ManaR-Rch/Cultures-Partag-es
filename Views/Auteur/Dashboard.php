@@ -22,7 +22,20 @@ try {
 } catch(PDOException $e) {
   die("Connection failed: " . $e->getMessage());
 }
+// Initialiser les classes Article et Category
+$articleObj = new Article($db);
+$categoryObj = new Category($db);
 
+// Gérer la suppression d'un article
+if (isset($_GET['delete_id'])) {
+    $article_id = $_GET['delete_id'];
+    if ($articleObj->deleteArticle($article_id)) {
+        header('Location: Dashboard.php');
+        exit();
+    } else {
+        echo "Failed to delete the article.";
+    }
+}
 ?>
 
 <!DOCTYPE html>
