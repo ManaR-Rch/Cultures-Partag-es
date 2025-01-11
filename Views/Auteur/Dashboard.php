@@ -13,15 +13,16 @@ $author_id = $_SESSION['user_id'];
 
 // Initialiser la connexion à la base de données
 try {
-  $db = new PDO(
-      "mysql:host=localhost;dbname=culture", // Hôte et nom de la base de données
-      "root", // Utilisateur
-      "",     // Mot de passe
-      array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION)
-  );
+    $db = new PDO(
+        "mysql:host=localhost;dbname=culture", // Hôte et nom de la base de données
+        "root", // Utilisateur
+        "",     // Mot de passe
+        array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION)
+    );
 } catch(PDOException $e) {
-  die("Connection failed: " . $e->getMessage());
+    die("Connection failed: " . $e->getMessage());
 }
+
 // Initialiser les classes Article et Category
 $articleObj = new Article($db);
 $categoryObj = new Category($db);
@@ -36,6 +37,91 @@ if (isset($_GET['delete_id'])) {
         echo "Failed to delete the article.";
     }
 }
+
+// Gérer la mise à jour d'un article
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_article'])) {
+    $article_id = $_POST['article_id'];
+    $titre = $_POST['titre'] ?? '';
+    $contenu = $_POST['contenu'] ?? '';
+    $category_id = $_POST['category_id'] ?? '';
+
+    // Gérer l'upload de l'image
+    $image = null;
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $uploadDir = __DIR__ . '/../../uploads/'; // Dossier où stocker les images
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true); // Créer le dossier s'il n'existe pas
+        }
+        $imageName = uniqid() . '_' . basename($_FILES['image']['name']); // Nom unique pour éviter les conflits
+        $imagePath = $uploadDir . $imageName;
+        if (move_uploaded_file($_FILES['image']['tmp_name'], $imagePath)) {
+            $image = $imageName; // Stocker le nom de l'image dans la base de données
+        }
+    }
+
+    // Mettre à jour l'article avec l'image
+    if ($articleObj->updateArticle($article_id, $titre, $contenu, $category_id, $image)) {
+        header('Location: Dashboard.php');
+        exit();
+    }
+}
+
+// Gérer la création d'un nouvel article
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['titre'])) {
+    $titre = $_POST['titre'] ?? '';
+    $contenu = $_POST['contenu'] ?? '';
+    $category_id = $_POST['category_id'] ?? '';
+    $user_id = $_SESSION['user_id'];
+
+    // Gérer l'upload de l'image
+    $image = null;
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $uploadDir = __DIR__ . '/../../uploads/'; // Dossier où stocker les images
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true); // Créer le dossier s'il n'existe pas
+        }
+        $imageName = uniqid() . '_' . basename($_FILES['image']['name']); // Nom unique pour éviter les conflits
+        $imagePath = $uploadDir . $imageName;
+        if (move_uploaded_file($_FILES['image']['tmp_name'], $imagePath)) {
+            $image = $imageName; // Stocker le nom de l'image dans la base de données
+        }
+    }
+
+    // Créer l'article avec l'image
+    if ($articleObj->create($titre, $contenu, $user_id, $category_id, $image)) {
+        header('Location: Dashboard.php');
+        exit();
+    }
+}
+
+// Récupérer les articles de l'auteur avec pagination
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$limit = 6; // Nombre d'articles par page
+
+// Récupérer le nombre total d'articles pour la pagination
+$stmt = $db->prepare("SELECT COUNT(*) FROM article WHERE user_id = :user_id");
+$stmt->execute([':user_id' => $author_id]);
+$total_articles = $stmt->fetchColumn();
+$total_pages = ceil($total_articles / $limit);
+
+// Récupérer les articles pour la page actuelle
+$offset = ($page - 1) * $limit;
+$stmt = $db->prepare("
+    SELECT a.*, c.nom as category_name 
+    FROM article a
+    JOIN categories c ON a.category_id = c.id
+    WHERE a.user_id = :user_id
+    ORDER BY a.id DESC
+    LIMIT :limit OFFSET :offset
+");
+$stmt->bindValue(':user_id', $author_id, PDO::PARAM_INT);
+$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$stmt->execute();
+$articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Récupérer toutes les catégories pour le formulaire
+$categories = $categoryObj->getAll();
 ?>
 
 <!DOCTYPE html>
